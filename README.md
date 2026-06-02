@@ -1,8 +1,17 @@
 # AI Chat Platform
 
-Aplicacion de chat IA para portfolio, construida con Next.js, FastAPI, PostgreSQL y Hugging Face.
+## 🌎 Languages
 
-La experiencia principal funciona como demo privada por visitante: los chats se guardan en `localStorage` del navegador y no se mezclan entre usuarios. PostgreSQL se usa para metricas anonimas y feedback, no para guardar conversaciones privadas.
+- English (this document)
+- [Español](README.es.md)
+
+## Live Demo
+
+[View the deployed project on Netlify](https://ai-chat-platform.netlify.app)
+
+AI chat application for a portfolio project, built with Next.js, FastAPI, PostgreSQL, and Hugging Face.
+
+The main experience works as a private demo per visitor: chats are stored in the browser's `localStorage` and are not mixed between users. PostgreSQL is used for anonymous metrics and feedback, not for storing private conversations.
 
 ## Stack
 
@@ -12,10 +21,10 @@ La experiencia principal funciona como demo privada por visitante: los chats se 
 - React 19
 - TypeScript
 - Hugeicons
-- Tema claro/oscuro con preferencia en `localStorage`
-- Chats locales por navegador
-- Feedback por respuesta
-- Favicon/logo con `AiBrain01Icon`
+- Light/dark theme with preference stored in `localStorage`
+- Local chats per browser
+- Response feedback
+- Favicon/logo based on `AiBrain01Icon`
 
 ### Backend
 
@@ -23,60 +32,60 @@ La experiencia principal funciona como demo privada por visitante: los chats se 
 - FastAPI + Pydantic
 - PostgreSQL + psycopg2
 - Hugging Face Inference API
-- Modelo: `meta-llama/Llama-3.1-8B-Instruct`
+- Model: `meta-llama/Llama-3.1-8B-Instruct`
 - Uvicorn
 
-## Estructura
+## Project Structure
 
 ```text
 aichatbox/
 ├── ai-chat-backend/
 ├── ai-chat-frontend/
 ├── docker-compose.yml
-└── README.md
+├── README.md
+└── README.es.md
 ```
 
-## Puertos
+## Ports
 
 - Frontend Docker: `http://localhost:3003`
-- Frontend dev alternativo usado localmente: `http://localhost:3004`
+- Alternative local dev frontend: `http://localhost:3004`
 - Backend: `http://localhost:18000`
 - PostgreSQL: `localhost:15432`
 
-## Levantar todo con Docker
+## Run Everything With Docker
 
-Desde la raiz del proyecto:
+From the project root:
 
 ```bash
-cd /home/cex5/Documentos/aichatbox
 docker compose up -d --build
 ```
 
-Siguientes veces, sin rebuild:
+Next runs without rebuilding:
 
 ```bash
 docker compose up -d
 ```
 
-Apagar:
+Stop services:
 
 ```bash
 docker compose down
 ```
 
-Reconstruir solo backend despues de cambios Python:
+Rebuild only the backend after Python changes:
 
 ```bash
 docker compose up -d --build backend
 ```
 
-Reconstruir solo frontend despues de cambios Next:
+Rebuild only the frontend after Next.js changes:
 
 ```bash
 docker compose up -d --build frontend
 ```
 
-## Desarrollo local frontend
+## Local Frontend Development
 
 ```bash
 cd ai-chat-frontend
@@ -84,44 +93,44 @@ npm install
 npm run dev
 ```
 
-Por defecto el frontend corre en `3003`. Si ese puerto esta ocupado, se puede usar Next directamente con otro puerto:
+By default, the frontend runs on `3003`. If that port is already in use, run Next directly on another port:
 
 ```bash
 ./node_modules/.bin/next dev -p 3004
 ```
 
-En desarrollo local, las API routes de Next usan este backend por defecto:
+In local development, the Next API routes use this backend by default:
 
 ```text
 http://localhost:18000
 ```
 
-En Docker, `docker-compose.yml` define:
+In Docker, `docker-compose.yml` defines:
 
 ```text
 BACKEND_URL=http://backend:8000
 ```
 
-## Variables de entorno backend
+## Backend Environment Variables
 
-Archivo esperado:
+Expected file:
 
 ```text
 ai-chat-backend/.env
 ```
 
-Ejemplo:
+Example:
 
 ```env
 DATABASE_URL=postgresql://user:password@postgres:5432/chatdb
-HF_TOKEN=tu_token_huggingface
+HF_TOKEN=your_huggingface_token
 ```
 
-No subas tokens reales a repos publicos.
+Do not commit real tokens to public repositories.
 
-## Modo portfolio/demo
+## Portfolio/Demo Mode
 
-El frontend envia los mensajes a `/api/chat` con:
+The frontend sends messages to `/api/chat` with:
 
 ```json
 {
@@ -129,54 +138,54 @@ El frontend envia los mensajes a `/api/chat` con:
 }
 ```
 
-Con `persist: false`, el backend:
+With `persist: false`, the backend:
 
-- genera respuesta con Hugging Face en streaming SSE
-- registra metricas anonimas al finalizar el stream
-- no crea conversaciones en PostgreSQL
-- no guarda mensajes del usuario
-- no guarda respuestas del asistente
+- generates the Hugging Face response through SSE streaming
+- records anonymous metrics when the stream finishes
+- does not create conversations in PostgreSQL
+- does not store user messages
+- does not store assistant responses
 
-Los chats del visitante se guardan solo en:
+Visitor chats are stored only in:
 
 ```text
 localStorage
 ```
 
-Esto evita que distintos visitantes vean o mezclen conversaciones entre si.
+This prevents different visitors from seeing or mixing each other's conversations.
 
-## Uso de PostgreSQL
+## PostgreSQL Usage
 
-PostgreSQL se usa para datos anonimos de portfolio:
+PostgreSQL is used for anonymous portfolio data:
 
 ### `anonymous_chat_metrics`
 
-Guarda datos tecnicos por respuesta:
+Stores technical response data:
 
-- modo (`demo`)
-- modelo usado
-- tokens estimados de entrada
-- tokens estimados de salida
-- latencia
-- si fue persistido o no
-- fecha
+- mode (`demo`)
+- model used
+- estimated input tokens
+- estimated output tokens
+- latency
+- whether the response was persisted
+- date
 
-No guarda texto del chat.
+It does not store chat text.
 
 ### `anonymous_feedback`
 
-Guarda feedback anonimo:
+Stores anonymous feedback:
 
-- rating: `up` o `down`
-- id local anonimo del mensaje
-- id local anonimo del chat
-- modelo
-- comentario opcional
-- fecha
+- rating: `up` or `down`
+- anonymous local message id
+- anonymous local chat id
+- model
+- optional comment
+- date
 
-No guarda prompts ni respuestas.
+It does not store prompts or responses.
 
-## Endpoints principales
+## Main Endpoints
 
 ### Chat
 
@@ -184,25 +193,25 @@ No guarda prompts ni respuestas.
 POST /chat
 ```
 
-Devuelve una respuesta SSE (`text/event-stream`) con eventos:
+Returns an SSE response (`text/event-stream`) with events:
 
 ```text
-data: {"token": "fragmento"}
+data: {"token": "fragment"}
 
 data: [DONE]
 ```
 
-Body relevante:
+Relevant body:
 
 ```json
 {
-  "message": "Hola",
+  "message": "Hello",
   "history": [],
   "persist": false
 }
 ```
 
-### Feedback anonimo
+### Anonymous Feedback
 
 ```text
 POST /feedback
@@ -219,13 +228,13 @@ Body:
 }
 ```
 
-### Resumen de analytics
+### Analytics Summary
 
 ```text
 GET /analytics/summary
 ```
 
-Devuelve totales anonimos:
+Returns anonymous totals:
 
 ```json
 {
@@ -238,9 +247,9 @@ Devuelve totales anonimos:
 }
 ```
 
-### Conversaciones persistentes
+### Persistent Conversations
 
-El backend conserva endpoints para modo persistente si se quisiera activar en el futuro:
+The backend keeps persistent conversation endpoints in case this mode is enabled later:
 
 ```text
 POST /conversations
@@ -250,11 +259,11 @@ DELETE /conversations/{conversation_id}
 GET /conversations/{conversation_id}/messages
 ```
 
-El frontend actual de portfolio no los usa para guardar chats.
+The current portfolio frontend does not use these endpoints to store chats.
 
-## Endpoints Next API
+## Next API Endpoints
 
-El frontend usa API routes como proxy:
+The frontend uses Next API routes as a proxy:
 
 ```text
 POST /api/chat
@@ -265,40 +274,96 @@ DELETE /api/conversations/{conversationId}
 GET /api/conversations/{conversationId}/messages
 ```
 
-## UI actual
+## Current UI
 
-- Layout full screen
-- Sidebar a la izquierda
-- Chats locales con menu `...`
-- Opciones: cambiar nombre y eliminar chat
-- Streaming de respuesta letra por letra via SSE
-- Spinner `Procesando` hasta recibir el primer token
-- Auto-scroll al ultimo mensaje
-- Feedback por respuesta con pulgar arriba / abajo
-- Firma: `by Gianni Etcheverry`
-- Logo/fav icon basado en `AiBrain01Icon`
+- Full-screen layout
+- Independent left sidebar
+- Separate scroll areas for sidebar and chat
+- Local chats with `...` menu
+- Options: rename chat and delete chat
+- Letter-by-letter SSE response streaming
+- `Procesando` spinner until the first token arrives
+- Auto-scroll to the latest message
+- Response feedback with thumbs up / thumbs down
+- Signature: `by Gianni Etcheverry`
+- Logo/favicon based on `AiBrain01Icon`
 
-## Verificaciones utiles
+## Deployment Notes
 
-Build frontend:
+This project is dockerized for local development and container-based deployments.
+
+### Local Development With Docker
+
+Use Docker Compose to run the frontend and backend together:
+
+```bash
+docker compose up --build
+```
+
+This starts both services using the versions and environment defined in the Docker configuration.
+
+### Netlify Deployment
+
+The frontend is deployed separately on Netlify:
+
+[https://ai-chat-platform.netlify.app](https://ai-chat-platform.netlify.app)
+
+Netlify does not use the Docker configuration. Instead, it builds the Next.js frontend directly:
+
+```bash
+cd ai-chat-frontend
+npm install
+npm run build
+```
+
+Netlify configuration:
+
+- Base directory: `ai-chat-frontend`
+- Build command: `npm run build`
+- Publish directory: `.next`
+- Next.js plugin: `@netlify/plugin-nextjs`
+
+Environment variable needed by the frontend API routes:
+
+```text
+BACKEND_URL=https://your-deployed-backend-url
+```
+
+### Backend Deployment
+
+The backend is not automatically deployed by Netlify. It should be deployed separately using a backend-friendly platform such as Render, Railway, Fly.io, a VPS, or any container-based hosting provider.
+
+The frontend should point to the deployed backend URL using `BACKEND_URL`.
+
+## Useful Checks
+
+Frontend build:
 
 ```bash
 cd ai-chat-frontend
 npm run build
 ```
 
-Validar sintaxis backend:
+Validate backend syntax:
 
 ```bash
 python3 -m py_compile ai-chat-backend/schemas.py ai-chat-backend/db.py ai-chat-backend/routers/chat.py ai-chat-backend/routers/analytics.py ai-chat-backend/app.py
 ```
 
-Probar backend:
+Test backend:
 
 ```bash
 curl http://localhost:18000/analytics/summary
 ```
 
-## Nota para despliegue
+## Commit And Push Changes
 
-Para portfolio publico, mantener `persist: false` en el frontend evita que se guarden conversaciones privadas. La base de datos sigue aportando valor tecnico mediante metricas anonimas y feedback.
+```bash
+git add README.md README.es.md
+git commit -m "Add deployment notes"
+git push
+```
+
+## Deployment Note
+
+For a public portfolio deployment, keeping `persist: false` in the frontend prevents private conversations from being stored. The database still provides technical value through anonymous metrics and feedback.
