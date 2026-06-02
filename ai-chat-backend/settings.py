@@ -3,7 +3,7 @@ import os
 DATABASE_URL = os.environ["DATABASE_URL"]
 HF_TOKEN = os.environ["HF_TOKEN"]
 
-CORS_ORIGINS = ["http://localhost:3000"]
+CORS_ORIGINS = ["https://ai-chat-platform.netlify.app"]
 
 MODEL_NAME = "meta-llama/Llama-3.1-8B-Instruct"
 MAX_TOKENS = 600

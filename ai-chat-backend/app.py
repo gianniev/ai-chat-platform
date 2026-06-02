@@ -9,7 +9,11 @@ from routers.analytics import router as analytics_router
 from routers.legacy import router as legacy_router
 from settings import CORS_ORIGINS
 
-app = FastAPI()
+app = FastAPI(
+    title="AI Chat Platform API",
+    description="FastAPI backend for an AI chat platform with analytics, feedback and PostgreSQL persistence.",
+    version="1.0.0",
+)
 
 app.add_middleware(
     CORSMiddleware,

@@ -7,7 +7,11 @@
 
 ## Demo en vivo
 
-[Ver proyecto desplegado en Netlify](https://ai-chat-platform.netlify.app)
+Frontend: [https://ai-chat-platform.netlify.app](https://ai-chat-platform.netlify.app)
+
+Backend API: [https://ai-chat-platform-production-e316.up.railway.app](https://ai-chat-platform-production-e316.up.railway.app)
+
+API Docs: [https://ai-chat-platform-production-e316.up.railway.app/docs](https://ai-chat-platform-production-e316.up.railway.app/docs)
 
 Aplicacion de chat IA para portfolio, construida con Next.js, FastAPI, PostgreSQL y Hugging Face.
 
@@ -187,6 +191,17 @@ No guarda prompts ni respuestas.
 
 ## Endpoints principales
 
+## API Endpoints
+
+- `GET /` - Estado de la API
+- `GET /health` - Health check
+- `GET /health/db` - Verificacion de conexion con la base de datos
+- `POST /chat` - Enviar un mensaje al chat
+- `POST /feedback` - Enviar feedback
+- `GET /analytics/summary` - Obtener analiticas de uso
+- `GET /docs` - Documentacion Swagger de la API
+
+
 ### Chat
 
 ```text
@@ -288,27 +303,35 @@ GET /api/conversations/{conversationId}/messages
 - Firma: `by Gianni Etcheverry`
 - Logo/fav icon basado en `AiBrain01Icon`
 
-## Deployment notes
+## Notas de despliegue
 
-This project is dockerized for local development and container-based deployments.
+## Capturas
 
-### Local development with Docker
+Capturas recomendadas para agregar cuando esten disponibles:
 
-Use Docker Compose to run the frontend and backend together:
+- Chat funcionando: `docs/screenshots/chat-demo.png`
+- Documentacion Swagger: `docs/screenshots/swagger-docs.png`
+
+
+Este proyecto esta dockerizado para desarrollo local y despliegues basados en contenedores.
+
+### Desarrollo local con Docker
+
+Usa Docker Compose para ejecutar frontend y backend juntos:
 
 ```bash
 docker compose up --build
 ```
 
-This starts both services using the versions and environment defined in the Docker configuration.
+Esto inicia ambos servicios usando las versiones y variables definidas en la configuracion de Docker.
 
-### Netlify deployment
+### Despliegue en Netlify
 
-The frontend is deployed separately on Netlify:
+El frontend esta desplegado por separado en Netlify:
 
 [https://ai-chat-platform.netlify.app](https://ai-chat-platform.netlify.app)
 
-Netlify does not use the Docker configuration. Instead, it builds the Next.js frontend directly:
+Netlify no usa la configuracion de Docker. En su lugar, construye el frontend de Next.js directamente:
 
 ```bash
 cd ai-chat-frontend
@@ -316,24 +339,30 @@ npm install
 npm run build
 ```
 
-Netlify configuration:
+Configuracion de Netlify:
 
 - Base directory: `ai-chat-frontend`
 - Build command: `npm run build`
 - Publish directory: `.next`
 - Next.js plugin: `@netlify/plugin-nextjs`
 
-Environment variable needed by the frontend API routes:
+Variable de entorno necesaria para las API routes del frontend:
 
 ```text
-BACKEND_URL=https://your-deployed-backend-url
+BACKEND_URL=https://ai-chat-platform-production-e316.up.railway.app
 ```
 
-### Backend deployment
+### Despliegue del backend
 
-The backend is not automatically deployed by Netlify. It should be deployed separately using a backend-friendly platform such as Render, Railway, Fly.io, a VPS, or any container-based hosting provider.
+El backend esta desplegado por separado en Railway:
 
-The frontend should point to the deployed backend URL using `BACKEND_URL`.
+[https://ai-chat-platform-production-e316.up.railway.app](https://ai-chat-platform-production-e316.up.railway.app)
+
+La documentacion de FastAPI esta disponible en:
+
+[https://ai-chat-platform-production-e316.up.railway.app/docs](https://ai-chat-platform-production-e316.up.railway.app/docs)
+
+Netlify no despliega el backend. El frontend apunta al backend de Railway usando `BACKEND_URL`.
 
 ## Verificaciones utiles
 

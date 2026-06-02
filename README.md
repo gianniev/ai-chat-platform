@@ -7,7 +7,11 @@
 
 ## Live Demo
 
-[View the deployed project on Netlify](https://ai-chat-platform.netlify.app)
+Frontend: [https://ai-chat-platform.netlify.app](https://ai-chat-platform.netlify.app)
+
+Backend API: [https://ai-chat-platform-production-e316.up.railway.app](https://ai-chat-platform-production-e316.up.railway.app)
+
+API Docs: [https://ai-chat-platform-production-e316.up.railway.app/docs](https://ai-chat-platform-production-e316.up.railway.app/docs)
 
 AI chat application for a portfolio project, built with Next.js, FastAPI, PostgreSQL, and Hugging Face.
 
@@ -187,6 +191,17 @@ It does not store prompts or responses.
 
 ## Main Endpoints
 
+## API Endpoints
+
+- `GET /` - API status
+- `GET /health` - Health check
+- `GET /health/db` - Database health check
+- `POST /chat` - Send a chat message
+- `POST /feedback` - Submit feedback
+- `GET /analytics/summary` - Get usage analytics
+- `GET /docs` - Swagger API documentation
+
+
 ### Chat
 
 ```text
@@ -290,6 +305,14 @@ GET /api/conversations/{conversationId}/messages
 
 ## Deployment Notes
 
+## Screenshots
+
+Recommended review screenshots to add when available:
+
+- Chat working: `docs/screenshots/chat-demo.png`
+- Swagger API docs: `docs/screenshots/swagger-docs.png`
+
+
 This project is dockerized for local development and container-based deployments.
 
 ### Local Development With Docker
@@ -326,14 +349,20 @@ Netlify configuration:
 Environment variable needed by the frontend API routes:
 
 ```text
-BACKEND_URL=https://your-deployed-backend-url
+BACKEND_URL=https://ai-chat-platform-production-e316.up.railway.app
 ```
 
 ### Backend Deployment
 
-The backend is not automatically deployed by Netlify. It should be deployed separately using a backend-friendly platform such as Render, Railway, Fly.io, a VPS, or any container-based hosting provider.
+The backend is deployed separately on Railway:
 
-The frontend should point to the deployed backend URL using `BACKEND_URL`.
+[https://ai-chat-platform-production-e316.up.railway.app](https://ai-chat-platform-production-e316.up.railway.app)
+
+FastAPI documentation is available at:
+
+[https://ai-chat-platform-production-e316.up.railway.app/docs](https://ai-chat-platform-production-e316.up.railway.app/docs)
+
+Netlify does not deploy the backend. The frontend points to the Railway backend through `BACKEND_URL`.
 
 ## Useful Checks
 
