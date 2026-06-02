@@ -120,6 +120,20 @@ def init_db():
 
     cur.execute(
         """
+        ALTER TABLE anonymous_chat_metrics
+        ADD COLUMN IF NOT EXISTS provider TEXT;
+        """
+    )
+
+    cur.execute(
+        """
+        ALTER TABLE anonymous_chat_metrics
+        ADD COLUMN IF NOT EXISTS model TEXT;
+        """
+    )
+
+    cur.execute(
+        """
         CREATE INDEX IF NOT EXISTS idx_conversations_user_updated
         ON conversations(user_id, updated_at DESC);
         """
@@ -268,6 +282,7 @@ def insert_anonymous_chat_metric(
     latency_ms: Optional[int],
     persisted: bool,
     success: bool = True,
+    provider: Optional[str] = None,
 ):
     conn = get_connection()
     cur = conn.cursor()
@@ -277,6 +292,7 @@ def insert_anonymous_chat_metric(
             """
             INSERT INTO anonymous_chat_metrics (
                 mode,
+                provider,
                 model,
                 tokens_in_est,
                 tokens_out_est,
@@ -284,9 +300,9 @@ def insert_anonymous_chat_metric(
                 persisted,
                 success
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             """,
-            (mode, model, tokens_in_est, tokens_out_est, latency_ms, persisted, success),
+            (mode, provider, model, tokens_in_est, tokens_out_est, latency_ms, persisted, success),
         )
         conn.commit()
     finally:

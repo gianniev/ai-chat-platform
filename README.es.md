@@ -128,6 +128,10 @@ Ejemplo:
 ```env
 DATABASE_URL=postgresql://user:password@postgres:5432/chatdb
 HF_TOKEN=tu_token_huggingface
+OPENROUTER_API_KEY=tu_token_openrouter
+OPENROUTER_DEFAULT_MODEL=deepseek/deepseek-chat-v3-0324:free
+GEMINI_API_KEY=tu_token_gemini
+GEMINI_DEFAULT_MODEL=gemini-2.5-flash
 ```
 
 No subas tokens reales a repos publicos.
@@ -197,6 +201,7 @@ No guarda prompts ni respuestas.
 - `POST /chat` - Enviar un mensaje al chat
 - `POST /feedback` - Enviar feedback
 - `GET /analytics/summary` - Obtener analiticas de uso
+- `GET /analytics/models` - Obtener analiticas agrupadas por proveedor y modelo
 - `GET /docs` - Documentacion Swagger de la API
 
 ### Ejemplos de health check
@@ -241,8 +246,32 @@ Body relevante:
 {
   "message": "Hola",
   "history": [],
-  "persist": false
+  "persist": false,
+  "provider": "huggingface",
+  "model": null
 }
+```
+
+Defaults de proveedor:
+
+- `huggingface` se usa cuando no se envia proveedor.
+- `openrouter` usa `OPENROUTER_DEFAULT_MODEL` o `deepseek/deepseek-chat-v3-0324:free`.
+- `gemini` usa `GEMINI_DEFAULT_MODEL` o `gemini-2.5-flash`.
+
+Prueba OpenRouter:
+
+```bash
+curl -X POST https://ai-chat-platform-production-e316.up.railway.app/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message":"Hola","history":[],"persist":false,"provider":"openrouter"}'
+```
+
+Prueba Gemini:
+
+```bash
+curl -X POST https://ai-chat-platform-production-e316.up.railway.app/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message":"Hola","history":[],"persist":false,"provider":"gemini"}'
 ```
 
 ### Feedback anonimo
@@ -278,6 +307,27 @@ Devuelve totales anonimos:
   "tokens_out_est": 900,
   "positive_feedback": 4,
   "negative_feedback": 1
+}
+```
+
+### Analiticas por modelo
+
+```text
+GET /analytics/models
+```
+
+Devuelve uso anonimo agrupado por proveedor y modelo:
+
+```json
+{
+  "models": [
+    {
+      "provider": "openrouter",
+      "model": "deepseek/deepseek-chat-v3-0324:free",
+      "total_requests": 120,
+      "avg_latency_ms": 850
+    }
+  ]
 }
 ```
 

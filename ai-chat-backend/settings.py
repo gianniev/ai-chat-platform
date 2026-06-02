@@ -2,6 +2,13 @@ import os
 
 DATABASE_URL = os.environ["DATABASE_URL"]
 HF_TOKEN = os.environ["HF_TOKEN"]
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+OPENROUTER_DEFAULT_MODEL = os.getenv(
+    "OPENROUTER_DEFAULT_MODEL",
+    "deepseek/deepseek-chat-v3-0324:free",
+)
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_DEFAULT_MODEL = os.getenv("GEMINI_DEFAULT_MODEL", "gemini-2.5-flash")
 
 CORS_ORIGINS = ["https://ai-chat-platform.netlify.app"]
 

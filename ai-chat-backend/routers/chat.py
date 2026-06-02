@@ -19,10 +19,13 @@ from schemas import ChatRequest
 from services.chat_service import (
     ensure_latest_user_turn,
     estimate_tokens,
+    generate_provider_response,
     iter_response_tokens,
     normalize_history,
+    normalize_provider,
+    resolve_provider_model,
 )
-from settings import HISTORY_LIMIT, MODEL_NAME
+from settings import HISTORY_LIMIT
 
 router = APIRouter()
 
@@ -36,81 +39,139 @@ def sse_token(token: str) -> str:
     return f"data: {json.dumps({'token': token})}\n\n"
 
 
+def persist_or_record_response(
+    history_messages: list[dict],
+    full_response: str,
+    latency_ms: int,
+    persisted: bool,
+    provider: str,
+    model: str,
+    conversation_id: Optional[int] = None,
+    user_message: Optional[str] = None,
+):
+    prompt_text = " ".join(msg["content"] for msg in history_messages)
+    tokens_in_est = estimate_tokens(prompt_text)
+    tokens_out_est = estimate_tokens(full_response)
+
+    if not persisted:
+        insert_anonymous_chat_metric(
+            mode="demo",
+            provider=provider,
+            model=model,
+            tokens_in_est=tokens_in_est,
+            tokens_out_est=tokens_out_est,
+            latency_ms=latency_ms,
+            persisted=False,
+        )
+        return
+
+    if conversation_id is None or user_message is None:
+        return
+
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        insert_chat_message(
+            cur,
+            conversation_id=conversation_id,
+            role="user",
+            content=user_message,
+            model=model,
+            tokens_in=tokens_in_est,
+            latency_ms=latency_ms,
+        )
+
+        insert_chat_message(
+            cur,
+            conversation_id=conversation_id,
+            role="assistant",
+            content=full_response,
+            model=model,
+            tokens_in=tokens_in_est,
+            tokens_out=tokens_out_est,
+            latency_ms=latency_ms,
+        )
+
+        cur.execute(
+            """
+            INSERT INTO messages (user_message, assistant_message)
+            VALUES (%s, %s)
+            """,
+            (user_message, full_response),
+        )
+
+        touch_conversation(cur, conversation_id)
+        conn.commit()
+    finally:
+        cur.close()
+        conn.close()
+
+
 def stream_chat_response(
     history_messages: list[dict],
     persisted: bool,
+    provider: str,
+    model: str,
     conversation_id: Optional[int] = None,
     user_message: Optional[str] = None,
-    user_id: Optional[int] = None,
+    precomputed_response: Optional[tuple[str, int]] = None,
 ):
     def generate():
+        if precomputed_response is not None:
+            full_response, latency_ms = precomputed_response
+            if full_response:
+                yield sse_token(full_response)
+            yield "data: [DONE]\n\n"
+            persist_or_record_response(
+                history_messages=history_messages,
+                full_response=full_response,
+                latency_ms=latency_ms,
+                persisted=persisted,
+                provider=provider,
+                model=model,
+                conversation_id=conversation_id,
+                user_message=user_message,
+            )
+            return
+
         started_at = time.time()
         full_response = ""
 
-        for token in iter_response_tokens(history_messages):
+        for token in iter_response_tokens(history_messages, model=model):
             full_response += token
             yield sse_token(token)
 
         latency_ms = int((time.time() - started_at) * 1000)
         yield "data: [DONE]\n\n"
 
-        prompt_text = " ".join(msg["content"] for msg in history_messages)
-        tokens_in_est = estimate_tokens(prompt_text)
-        tokens_out_est = estimate_tokens(full_response)
-
-        if not persisted:
-            insert_anonymous_chat_metric(
-                mode="demo",
-                model=MODEL_NAME,
-                tokens_in_est=tokens_in_est,
-                tokens_out_est=tokens_out_est,
-                latency_ms=latency_ms,
-                persisted=False,
-            )
-            return
-
-        if conversation_id is None or user_message is None:
-            return
-
-        conn = get_connection()
-        cur = conn.cursor()
-        try:
-            insert_chat_message(
-                cur,
-                conversation_id=conversation_id,
-                role="user",
-                content=user_message,
-                model=MODEL_NAME,
-                tokens_in=tokens_in_est,
-                latency_ms=latency_ms,
-            )
-
-            insert_chat_message(
-                cur,
-                conversation_id=conversation_id,
-                role="assistant",
-                content=full_response,
-                model=MODEL_NAME,
-                tokens_in=tokens_in_est,
-                tokens_out=tokens_out_est,
-                latency_ms=latency_ms,
-            )
-
-            cur.execute(
-                """
-                INSERT INTO messages (user_message, assistant_message)
-                VALUES (%s, %s)
-                """,
-                (user_message, full_response),
-            )
-
-            touch_conversation(cur, conversation_id)
-            conn.commit()
-        finally:
-            cur.close()
-            conn.close()
+        persist_or_record_response(
+            history_messages=history_messages,
+            full_response=full_response,
+            latency_ms=latency_ms,
+            persisted=persisted,
+            provider=provider,
+            model=model,
+            conversation_id=conversation_id,
+            user_message=user_message,
+        )
 
     return StreamingResponse(generate(), media_type="text/event-stream", headers=SSE_HEADERS)
+
+
+def build_precomputed_response_if_needed(provider: str, history_messages: list[dict], model: str):
+    if provider == "huggingface":
+        return None, model
+
+    try:
+        response_text, latency_ms, selected_model = generate_provider_response(
+            provider=provider,
+            history_messages=history_messages,
+            model=model,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    return (response_text, latency_ms), selected_model
 
 
 @router.post("/chat")
@@ -119,11 +180,24 @@ def chat(request: ChatRequest):
     if not user_message:
         raise HTTPException(status_code=400, detail="El campo 'message' es obligatorio.")
 
+    try:
+        provider = normalize_provider(request.provider)
+        model = resolve_provider_model(provider, request.model)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     request_history = normalize_history(request.history)
 
     if not request.persist:
         history_messages = ensure_latest_user_turn(request_history, user_message)
-        return stream_chat_response(history_messages=history_messages, persisted=False, user_id=request.user_id)
+        precomputed_response, model = build_precomputed_response_if_needed(provider, history_messages, model)
+        return stream_chat_response(
+            history_messages=history_messages,
+            persisted=False,
+            provider=provider,
+            model=model,
+            precomputed_response=precomputed_response,
+        )
 
     conn = get_connection()
     cur = conn.cursor()
@@ -147,10 +221,13 @@ def chat(request: ChatRequest):
         cur.close()
         conn.close()
 
+    precomputed_response, model = build_precomputed_response_if_needed(provider, history_messages, model)
     return stream_chat_response(
         history_messages=history_messages,
         persisted=True,
+        provider=provider,
+        model=model,
         conversation_id=conversation_id,
         user_message=user_message,
-        user_id=user_id,
+        precomputed_response=precomputed_response,
     )

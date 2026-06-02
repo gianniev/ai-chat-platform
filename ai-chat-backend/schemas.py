@@ -14,6 +14,8 @@ class ChatRequest(BaseModel):
     conversation_id: Optional[int] = None
     user_id: Optional[int] = None
     persist: bool = True
+    provider: str = "huggingface"
+    model: Optional[str] = None
 
 
 class CreateConversationRequest(BaseModel):

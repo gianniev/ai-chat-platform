@@ -128,6 +128,10 @@ Example:
 ```env
 DATABASE_URL=postgresql://user:password@postgres:5432/chatdb
 HF_TOKEN=your_huggingface_token
+OPENROUTER_API_KEY=your_openrouter_token
+OPENROUTER_DEFAULT_MODEL=deepseek/deepseek-chat-v3-0324:free
+GEMINI_API_KEY=your_gemini_token
+GEMINI_DEFAULT_MODEL=gemini-2.5-flash
 ```
 
 Do not commit real tokens to public repositories.
@@ -197,6 +201,7 @@ It does not store prompts or responses.
 - `POST /chat` - Send a chat message
 - `POST /feedback` - Submit feedback
 - `GET /analytics/summary` - Get usage analytics
+- `GET /analytics/models` - Get usage analytics grouped by provider and model
 - `GET /docs` - Swagger API documentation
 
 ### Health Check Examples
@@ -241,8 +246,32 @@ Relevant body:
 {
   "message": "Hello",
   "history": [],
-  "persist": false
+  "persist": false,
+  "provider": "huggingface",
+  "model": null
 }
+```
+
+Provider defaults:
+
+- `huggingface` is used when no provider is sent.
+- `openrouter` uses `OPENROUTER_DEFAULT_MODEL` or `deepseek/deepseek-chat-v3-0324:free`.
+- `gemini` uses `GEMINI_DEFAULT_MODEL` or `gemini-2.5-flash`.
+
+OpenRouter test:
+
+```bash
+curl -X POST https://ai-chat-platform-production-e316.up.railway.app/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message":"Hello","history":[],"persist":false,"provider":"openrouter"}'
+```
+
+Gemini test:
+
+```bash
+curl -X POST https://ai-chat-platform-production-e316.up.railway.app/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message":"Hello","history":[],"persist":false,"provider":"gemini"}'
 ```
 
 ### Anonymous Feedback
@@ -278,6 +307,27 @@ Returns anonymous totals:
   "tokens_out_est": 900,
   "positive_feedback": 4,
   "negative_feedback": 1
+}
+```
+
+### Model Analytics
+
+```text
+GET /analytics/models
+```
+
+Returns anonymous usage grouped by provider and model:
+
+```json
+{
+  "models": [
+    {
+      "provider": "openrouter",
+      "model": "deepseek/deepseek-chat-v3-0324:free",
+      "total_requests": 120,
+      "avg_latency_ms": 850
+    }
+  ]
 }
 ```
 

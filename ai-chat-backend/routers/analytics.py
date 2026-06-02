@@ -62,3 +62,38 @@ def get_analytics_summary():
     finally:
         cur.close()
         conn.close()
+
+
+@router.get("/analytics/models")
+def get_model_analytics():
+    conn = get_connection()
+    cur = conn.cursor()
+
+    try:
+        cur.execute(
+            """
+            SELECT
+                COALESCE(provider, 'huggingface') AS provider,
+                COALESCE(NULLIF(model, ''), 'default') AS model,
+                COUNT(*) AS total_requests,
+                COALESCE(ROUND(AVG(latency_ms)), 0) AS avg_latency_ms
+            FROM anonymous_chat_metrics
+            GROUP BY COALESCE(provider, 'huggingface'), COALESCE(NULLIF(model, ''), 'default')
+            ORDER BY total_requests DESC, provider ASC, model ASC
+            """
+        )
+        rows = cur.fetchall()
+        return {
+            "models": [
+                {
+                    "provider": row[0],
+                    "model": row[1],
+                    "total_requests": row[2],
+                    "avg_latency_ms": row[3],
+                }
+                for row in rows
+            ]
+        }
+    finally:
+        cur.close()
+        conn.close()
