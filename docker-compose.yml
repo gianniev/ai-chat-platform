@@ -1,0 +1,32 @@
+services:
+  backend:
+    build: ./ai-chat-backend
+    ports:
+      - "18000:8000"
+    env_file:
+      - ./ai-chat-backend/.env
+    depends_on:
+      - postgres
+
+  frontend:
+    build: ./ai-chat-frontend
+    ports:
+      - "3003:3003"
+    environment:
+      BACKEND_URL: http://backend:8000
+    depends_on:
+      - backend
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: chatdb
+    ports:
+      - "15432:5432"
+    volumes:
+      - postgres_data_split:/var/lib/postgresql/data
+
+volumes:
+  postgres_data_split:
