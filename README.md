@@ -189,8 +189,6 @@ Stores anonymous feedback:
 
 It does not store prompts or responses.
 
-## Main Endpoints
-
 ## API Endpoints
 
 - `GET /` - API status
@@ -201,6 +199,27 @@ It does not store prompts or responses.
 - `GET /analytics/summary` - Get usage analytics
 - `GET /docs` - Swagger API documentation
 
+### Health Check Examples
+
+```bash
+curl https://ai-chat-platform-production-e316.up.railway.app/health
+```
+
+Expected response:
+
+```json
+{"status":"ok","service":"ai-chat-backend"}
+```
+
+```bash
+curl https://ai-chat-platform-production-e316.up.railway.app/health/db
+```
+
+Expected response:
+
+```json
+{"status":"ok","database":"connected"}
+```
 
 ### Chat
 

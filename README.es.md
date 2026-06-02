@@ -189,9 +189,7 @@ Guarda feedback anonimo:
 
 No guarda prompts ni respuestas.
 
-## Endpoints principales
-
-## API Endpoints
+## Endpoints de la API
 
 - `GET /` - Estado de la API
 - `GET /health` - Health check
@@ -201,6 +199,27 @@ No guarda prompts ni respuestas.
 - `GET /analytics/summary` - Obtener analiticas de uso
 - `GET /docs` - Documentacion Swagger de la API
 
+### Ejemplos de health check
+
+```bash
+curl https://ai-chat-platform-production-e316.up.railway.app/health
+```
+
+Respuesta esperada:
+
+```json
+{"status":"ok","service":"ai-chat-backend"}
+```
+
+```bash
+curl https://ai-chat-platform-production-e316.up.railway.app/health/db
+```
+
+Respuesta esperada:
+
+```json
+{"status":"ok","database":"connected"}
+```
 
 ### Chat
 
