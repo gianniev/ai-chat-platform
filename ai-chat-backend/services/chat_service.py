@@ -6,6 +6,7 @@ from schemas import ChatMessage
 from settings import HISTORY_LIMIT, HF_TOKEN, MAX_TOKENS, MODEL_NAME, SYSTEM_PROMPT, TEMPERATURE
 from services.gemini_service import generate_gemini_response
 from services.openrouter_service import generate_openrouter_response
+from services.provider_errors import ProviderServiceError
 
 hf_client = InferenceClient(api_key=HF_TOKEN)
 
@@ -103,7 +104,17 @@ def generate_provider_response(provider: str, history_messages: list[dict], mode
     selected_provider = normalize_provider(provider)
     if selected_provider == "huggingface":
         selected_model = resolve_provider_model("huggingface", model)
-        response_text, latency_ms = generate_response(history_messages, model=selected_model)
+        try:
+            response_text, latency_ms = generate_response(history_messages, model=selected_model)
+        except TimeoutError as exc:
+            raise ProviderServiceError("Hugging Face API request timed out.", retryable=True) from exc
+        except Exception as exc:
+            status_code = getattr(exc, "status_code", None)
+            response = getattr(exc, "response", None)
+            if status_code is None and response is not None:
+                status_code = getattr(response, "status_code", None)
+            retryable = status_code == 429 or (isinstance(status_code, int) and status_code >= 500)
+            raise ProviderServiceError("Hugging Face API request failed.", status_code=status_code, retryable=retryable) from exc
         return response_text, latency_ms, selected_model
     if selected_provider == "openrouter":
         return generate_openrouter_response(history_messages, model=model)

@@ -94,6 +94,9 @@ def init_db():
             id SERIAL PRIMARY KEY,
             mode TEXT NOT NULL DEFAULT 'demo',
             provider TEXT,
+            requested_provider TEXT,
+            actual_provider TEXT,
+            fallback_used BOOLEAN NOT NULL DEFAULT FALSE,
             model TEXT,
             tokens_in_est INTEGER,
             tokens_out_est INTEGER,
@@ -130,6 +133,27 @@ def init_db():
         """
         ALTER TABLE anonymous_chat_metrics
         ADD COLUMN IF NOT EXISTS model TEXT;
+        """
+    )
+
+    cur.execute(
+        """
+        ALTER TABLE anonymous_chat_metrics
+        ADD COLUMN IF NOT EXISTS requested_provider TEXT;
+        """
+    )
+
+    cur.execute(
+        """
+        ALTER TABLE anonymous_chat_metrics
+        ADD COLUMN IF NOT EXISTS actual_provider TEXT;
+        """
+    )
+
+    cur.execute(
+        """
+        ALTER TABLE anonymous_chat_metrics
+        ADD COLUMN IF NOT EXISTS fallback_used BOOLEAN NOT NULL DEFAULT FALSE;
         """
     )
 
@@ -284,13 +308,18 @@ def insert_anonymous_chat_metric(
     persisted: bool,
     success: bool = True,
     provider: Optional[str] = None,
+    requested_provider: Optional[str] = None,
+    actual_provider: Optional[str] = None,
+    fallback_used: bool = False,
 ):
-    safe_provider = provider or "unknown"
+    actual_provider = actual_provider or provider
+    requested_provider = requested_provider or provider
+    safe_provider = actual_provider or "unknown"
     safe_model = model or "default"
     print(
         "analytics_insert_start "
         f"provider={safe_provider} model={safe_model} "
-        f"latency_ms={latency_ms} persisted={persisted}",
+        f"latency_ms={latency_ms} persisted={persisted} fallback_used={fallback_used}",
         flush=True,
     )
 
@@ -303,6 +332,9 @@ def insert_anonymous_chat_metric(
             INSERT INTO anonymous_chat_metrics (
                 mode,
                 provider,
+                requested_provider,
+                actual_provider,
+                fallback_used,
                 model,
                 tokens_in_est,
                 tokens_out_est,
@@ -310,15 +342,27 @@ def insert_anonymous_chat_metric(
                 persisted,
                 success
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
-            (mode, provider, model, tokens_in_est, tokens_out_est, latency_ms, persisted, success),
+            (
+                mode,
+                actual_provider,
+                requested_provider,
+                actual_provider,
+                fallback_used,
+                model,
+                tokens_in_est,
+                tokens_out_est,
+                latency_ms,
+                persisted,
+                success,
+            ),
         )
         conn.commit()
         print(
             "analytics_insert_ok "
             f"provider={safe_provider} model={safe_model} "
-            f"latency_ms={latency_ms} persisted={persisted}",
+            f"latency_ms={latency_ms} persisted={persisted} fallback_used={fallback_used}",
             flush=True,
         )
     except Exception as error:

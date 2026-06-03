@@ -73,12 +73,14 @@ def get_model_analytics():
         cur.execute(
             """
             SELECT
-                COALESCE(NULLIF(provider, ''), 'huggingface') AS provider,
+                COALESCE(NULLIF(actual_provider, ''), NULLIF(provider, ''), 'huggingface') AS provider,
                 COALESCE(NULLIF(model, ''), 'default') AS model,
                 COUNT(*) AS total_requests,
                 COALESCE(ROUND(AVG(latency_ms)), 0) AS avg_latency_ms
             FROM anonymous_chat_metrics
-            GROUP BY COALESCE(NULLIF(provider, ''), 'huggingface'), COALESCE(NULLIF(model, ''), 'default')
+            GROUP BY
+                COALESCE(NULLIF(actual_provider, ''), NULLIF(provider, ''), 'huggingface'),
+                COALESCE(NULLIF(model, ''), 'default')
             ORDER BY total_requests DESC, provider ASC, model ASC
             """
         )
@@ -93,6 +95,31 @@ def get_model_analytics():
                 }
                 for row in rows
             ]
+        }
+    finally:
+        cur.close()
+        conn.close()
+
+
+@router.get("/analytics/fallbacks")
+def get_fallback_analytics():
+    conn = get_connection()
+    cur = conn.cursor()
+
+    try:
+        cur.execute(
+            """
+            SELECT
+                COUNT(*) AS total_requests,
+                COUNT(*) FILTER (WHERE fallback_used IS TRUE) AS total_fallbacks
+            FROM anonymous_chat_metrics
+            """
+        )
+        total_requests, total_fallbacks = cur.fetchone()
+        fallback_rate = float(total_fallbacks) / float(total_requests) if total_requests else 0.0
+        return {
+            "total_fallbacks": total_fallbacks,
+            "fallback_rate": round(fallback_rate, 4),
         }
     finally:
         cur.close()

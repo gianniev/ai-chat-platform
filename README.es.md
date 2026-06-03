@@ -13,7 +13,7 @@ Backend API: [https://ai-chat-platform-production-e316.up.railway.app](https://a
 
 API Docs: [https://ai-chat-platform-production-e316.up.railway.app/docs](https://ai-chat-platform-production-e316.up.railway.app/docs)
 
-Aplicacion de chat IA para portfolio, construida con Next.js, FastAPI, PostgreSQL y Hugging Face.
+Aplicacion de chat IA para portfolio, construida con Next.js, FastAPI, PostgreSQL, Hugging Face, OpenRouter y Gemini.
 
 La experiencia principal funciona como demo privada por visitante: los chats se guardan en `localStorage` del navegador y no se mezclan entre usuarios. PostgreSQL se usa para metricas anonimas y feedback, no para guardar conversaciones privadas.
 
@@ -36,7 +36,10 @@ La experiencia principal funciona como demo privada por visitante: los chats se 
 - FastAPI + Pydantic
 - PostgreSQL + psycopg2
 - Hugging Face Inference API
-- Modelo: `meta-llama/Llama-3.1-8B-Instruct`
+- OpenRouter API
+- Gemini API
+- Fallback automatico de proveedores: Gemini -> OpenRouter -> Hugging Face
+- Modelo Hugging Face por defecto: `meta-llama/Llama-3.1-8B-Instruct`
 - Uvicorn
 
 ## Estructura
@@ -148,7 +151,9 @@ El frontend envia los mensajes a `/api/chat` con:
 
 Con `persist: false`, el backend:
 
-- genera respuesta con Hugging Face en streaming SSE
+- genera respuesta IA en streaming SSE
+- soporta Hugging Face, OpenRouter y Gemini
+- usa fallback automatico al siguiente proveedor si hay rate limits, errores del servidor o timeouts
 - registra metricas anonimas al finalizar el stream
 - no crea conversaciones en PostgreSQL
 - no guarda mensajes del usuario
@@ -171,6 +176,9 @@ PostgreSQL se usa para datos anonimos de portfolio:
 Guarda datos tecnicos por respuesta:
 
 - modo (`demo`)
+- proveedor solicitado
+- proveedor real usado
+- si se uso fallback
 - modelo usado
 - tokens estimados de entrada
 - tokens estimados de salida
@@ -202,6 +210,7 @@ No guarda prompts ni respuestas.
 - `POST /feedback` - Enviar feedback
 - `GET /analytics/summary` - Obtener analiticas de uso
 - `GET /analytics/models` - Obtener analiticas agrupadas por proveedor y modelo
+- `GET /analytics/fallbacks` - Obtener metricas del fallback automatico de proveedores
 - `GET /docs` - Documentacion Swagger de la API
 
 ### Ejemplos de health check
@@ -237,6 +246,8 @@ Devuelve una respuesta SSE (`text/event-stream`) con eventos:
 ```text
 data: {"token": "fragmento"}
 
+data: {"metadata": {"provider": "openrouter", "model": "openrouter/free", "latency_ms": 2300}}
+
 data: [DONE]
 ```
 
@@ -257,6 +268,14 @@ Defaults de proveedor:
 - `huggingface` se usa cuando no se envia proveedor.
 - `openrouter` usa `OPENROUTER_DEFAULT_MODEL` o `deepseek/deepseek-chat-v3-0324:free`.
 - `gemini` usa `GEMINI_DEFAULT_MODEL` o `gemini-2.5-flash`.
+
+Orden de fallback automatico:
+
+1. Gemini
+2. OpenRouter
+3. Hugging Face
+
+El fallback solo se usa en fallos recuperables del proveedor: `429`, `5xx` o timeout. Los errores de validacion no se reintentan y los detalles internos del proveedor no se exponen al usuario.
 
 Prueba OpenRouter:
 
@@ -331,6 +350,22 @@ Devuelve uso anonimo agrupado por proveedor y modelo:
 }
 ```
 
+
+### Analiticas de fallback
+
+```text
+GET /analytics/fallbacks
+```
+
+Devuelve uso anonimo del fallback automatico:
+
+```json
+{
+  "total_fallbacks": 12,
+  "fallback_rate": 0.08
+}
+```
+
 ### Conversaciones persistentes
 
 El backend conserva endpoints para modo persistente si se quisiera activar en el futuro:
@@ -365,10 +400,14 @@ GET /api/conversations/{conversationId}/messages
 - Scroll separado para sidebar y chat
 - Chats locales con menu `...`
 - Opciones: cambiar nombre y eliminar chat
+- Selector de modelo/proveedor
+- Toast de confirmacion al cambiar de modelo
 - Streaming de respuesta letra por letra via SSE
+- Metadata debajo de cada respuesta del asistente: proveedor, modelo y latencia
 - Spinner `Procesando` hasta recibir el primer token
 - Auto-scroll al ultimo mensaje
 - Feedback por respuesta con pulgar arriba / abajo
+- Dashboard de analytics en `/analytics`
 - Firma: `by Gianni Etcheverry`
 - Logo/fav icon basado en `AiBrain01Icon`
 

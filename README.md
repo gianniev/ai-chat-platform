@@ -13,7 +13,7 @@ Backend API: [https://ai-chat-platform-production-e316.up.railway.app](https://a
 
 API Docs: [https://ai-chat-platform-production-e316.up.railway.app/docs](https://ai-chat-platform-production-e316.up.railway.app/docs)
 
-AI chat application for a portfolio project, built with Next.js, FastAPI, PostgreSQL, and Hugging Face.
+AI chat application for a portfolio project, built with Next.js, FastAPI, PostgreSQL, Hugging Face, OpenRouter, and Gemini.
 
 The main experience works as a private demo per visitor: chats are stored in the browser's `localStorage` and are not mixed between users. PostgreSQL is used for anonymous metrics and feedback, not for storing private conversations.
 
@@ -36,7 +36,10 @@ The main experience works as a private demo per visitor: chats are stored in the
 - FastAPI + Pydantic
 - PostgreSQL + psycopg2
 - Hugging Face Inference API
-- Model: `meta-llama/Llama-3.1-8B-Instruct`
+- OpenRouter API
+- Gemini API
+- Automatic provider fallback: Gemini -> OpenRouter -> Hugging Face
+- Default Hugging Face model: `meta-llama/Llama-3.1-8B-Instruct`
 - Uvicorn
 
 ## Project Structure
@@ -148,7 +151,9 @@ The frontend sends messages to `/api/chat` with:
 
 With `persist: false`, the backend:
 
-- generates the Hugging Face response through SSE streaming
+- generates the AI response through SSE streaming
+- supports Hugging Face, OpenRouter, and Gemini
+- automatically falls back to the next provider on rate limits, server errors, or timeouts
 - records anonymous metrics when the stream finishes
 - does not create conversations in PostgreSQL
 - does not store user messages
@@ -171,6 +176,9 @@ PostgreSQL is used for anonymous portfolio data:
 Stores technical response data:
 
 - mode (`demo`)
+- requested provider
+- actual provider
+- whether fallback was used
 - model used
 - estimated input tokens
 - estimated output tokens
@@ -202,6 +210,7 @@ It does not store prompts or responses.
 - `POST /feedback` - Submit feedback
 - `GET /analytics/summary` - Get usage analytics
 - `GET /analytics/models` - Get usage analytics grouped by provider and model
+- `GET /analytics/fallbacks` - Get automatic provider fallback metrics
 - `GET /docs` - Swagger API documentation
 
 ### Health Check Examples
@@ -237,6 +246,8 @@ Returns an SSE response (`text/event-stream`) with events:
 ```text
 data: {"token": "fragment"}
 
+data: {"metadata": {"provider": "openrouter", "model": "openrouter/free", "latency_ms": 2300}}
+
 data: [DONE]
 ```
 
@@ -257,6 +268,14 @@ Provider defaults:
 - `huggingface` is used when no provider is sent.
 - `openrouter` uses `OPENROUTER_DEFAULT_MODEL` or `deepseek/deepseek-chat-v3-0324:free`.
 - `gemini` uses `GEMINI_DEFAULT_MODEL` or `gemini-2.5-flash`.
+
+Automatic fallback order:
+
+1. Gemini
+2. OpenRouter
+3. Hugging Face
+
+Fallback is only used for retryable provider failures: `429`, `5xx`, or timeout. Validation errors are not retried, and provider error details are not exposed to users.
 
 OpenRouter test:
 
@@ -331,6 +350,22 @@ Returns anonymous usage grouped by provider and model:
 }
 ```
 
+
+### Fallback Analytics
+
+```text
+GET /analytics/fallbacks
+```
+
+Returns anonymous fallback usage:
+
+```json
+{
+  "total_fallbacks": 12,
+  "fallback_rate": 0.08
+}
+```
+
 ### Persistent Conversations
 
 The backend keeps persistent conversation endpoints in case this mode is enabled later:
@@ -365,10 +400,14 @@ GET /api/conversations/{conversationId}/messages
 - Separate scroll areas for sidebar and chat
 - Local chats with `...` menu
 - Options: rename chat and delete chat
+- Model/provider selector
+- Toast confirmation when the model changes
 - Letter-by-letter SSE response streaming
+- Response metadata below assistant messages: provider, model, and latency
 - `Procesando` spinner until the first token arrives
 - Auto-scroll to the latest message
 - Response feedback with thumbs up / thumbs down
+- Analytics dashboard at `/analytics`
 - Signature: `by Gianni Etcheverry`
 - Logo/favicon based on `AiBrain01Icon`
 

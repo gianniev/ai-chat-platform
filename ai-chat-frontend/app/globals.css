@@ -487,6 +487,18 @@ button {
   align-items: flex-end;
 }
 
+.assistantMeta {
+  max-width: min(80%, 720px);
+  color: var(--text-muted);
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.55;
+  padding-left: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
 .feedbackActions {
   display: inline-flex;
   align-items: center;
@@ -681,7 +693,8 @@ button {
     padding: 0 14px;
   }
 
-  .bubble {
+  .bubble,
+  .assistantMeta {
     max-width: 92%;
   }
 
@@ -693,5 +706,219 @@ button {
 
   .button {
     width: 100%;
+  }
+}
+
+
+.analyticsShell {
+  min-height: 100dvh;
+  overflow-y: auto;
+  background: var(--bg);
+  color: var(--text);
+  padding: 28px clamp(18px, 4vw, 52px);
+}
+
+.analyticsHeader {
+  max-width: 1180px;
+  margin: 0 auto 24px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.analyticsHeader h1 {
+  margin: 0;
+  color: var(--text);
+  font-family: var(--serif);
+  font-size: clamp(34px, 5vw, 56px);
+  font-weight: 400;
+  line-height: 1;
+}
+
+.analyticsHeader p {
+  margin: 10px 0 0;
+  max-width: 620px;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.analyticsEyebrow {
+  margin: 0 0 8px !important;
+  color: var(--signature) !important;
+  font-family: var(--mono);
+  font-size: 11px !important;
+  text-transform: uppercase;
+}
+
+.analyticsBackLink {
+  flex-shrink: 0;
+  min-height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-muted);
+  padding: 9px 12px;
+  text-decoration: none;
+  font-size: 13px;
+}
+
+.analyticsBackLink:hover {
+  border-color: var(--border-hover);
+  background: var(--bg3);
+  color: var(--text);
+}
+
+.analyticsSummaryGrid,
+.analyticsContentGrid {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.analyticsSummaryGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.analyticsCard,
+.analyticsPanel,
+.analyticsState {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg2);
+}
+
+.analyticsCard {
+  min-height: 112px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.analyticsCard span,
+.analyticsPanelHeader h2 {
+  color: var(--text-muted);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 400;
+  text-transform: uppercase;
+}
+
+.analyticsCard strong {
+  min-width: 0;
+  color: var(--text);
+  font-size: clamp(21px, 2.6vw, 30px);
+  font-weight: 500;
+  line-height: 1.1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.analyticsContentGrid {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 12px;
+}
+
+.analyticsPanel {
+  min-width: 0;
+  padding: 16px;
+}
+
+.analyticsPanelHeader {
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.analyticsPanelHeader h2 {
+  margin: 0;
+  color: var(--signature);
+}
+
+.analyticsChart {
+  width: 100%;
+  min-height: 280px;
+}
+
+.analyticsTableWrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.analyticsTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.analyticsTable th,
+.analyticsTable td {
+  border-bottom: 1px solid var(--border);
+  padding: 12px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.analyticsTable th {
+  color: var(--text-muted);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 400;
+  text-transform: uppercase;
+}
+
+.analyticsTable td {
+  color: var(--text);
+}
+
+.analyticsTable td:nth-child(2) {
+  max-width: 320px;
+  color: var(--text-muted);
+  word-break: break-word;
+}
+
+.analyticsState,
+.analyticsEmpty {
+  max-width: 1180px;
+  margin: 0 auto;
+  color: var(--text-muted);
+  padding: 22px;
+  font-size: 14px;
+}
+
+.analyticsStateError {
+  border-color: rgba(240, 128, 128, 0.35);
+  color: var(--danger);
+}
+
+@media (max-width: 920px) {
+  .analyticsHeader {
+    flex-direction: column;
+  }
+
+  .analyticsSummaryGrid,
+  .analyticsContentGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 620px) {
+  .analyticsShell {
+    padding: 20px 12px;
+  }
+
+  .analyticsSummaryGrid {
+    gap: 10px;
+  }
+
+  .analyticsCard {
+    min-height: 96px;
   }
 }

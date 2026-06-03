@@ -5,11 +5,12 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from settings import OPENROUTER_API_KEY, OPENROUTER_DEFAULT_MODEL, SYSTEM_PROMPT
+from services.provider_errors import ProviderServiceError
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 
-class OpenRouterServiceError(RuntimeError):
+class OpenRouterServiceError(ProviderServiceError):
     pass
 
 
@@ -29,7 +30,7 @@ def build_openrouter_messages(history_messages: list[dict]) -> list[dict]:
 
 def generate_openrouter_response(history_messages: list[dict], model: Optional[str] = None):
     if not OPENROUTER_API_KEY:
-        raise OpenRouterServiceError("OpenRouter API key is not configured.")
+        raise OpenRouterServiceError("OpenRouter API key is not configured.", retryable=False)
 
     selected_model = resolve_openrouter_model(model)
     payload = {
@@ -52,20 +53,25 @@ def generate_openrouter_response(history_messages: list[dict], model: Optional[s
         with urlopen(request, timeout=60) as response:
             data = json.loads(response.read().decode("utf-8"))
     except HTTPError as exc:
-        raise OpenRouterServiceError(f"OpenRouter API request failed with status {exc.code}.") from exc
+        retryable = exc.code == 429 or exc.code >= 500
+        raise OpenRouterServiceError(
+            f"OpenRouter API request failed with status {exc.code}.",
+            status_code=exc.code,
+            retryable=retryable,
+        ) from exc
     except (URLError, TimeoutError) as exc:
-        raise OpenRouterServiceError("OpenRouter API request failed.") from exc
+        raise OpenRouterServiceError("OpenRouter API request timed out or failed.", retryable=True) from exc
     except json.JSONDecodeError as exc:
-        raise OpenRouterServiceError("OpenRouter API returned an invalid response.") from exc
+        raise OpenRouterServiceError("OpenRouter API returned an invalid response.", retryable=False) from exc
 
     latency_ms = int((time.time() - started_at) * 1000)
 
     try:
         content = data["choices"][0]["message"]["content"]
     except (KeyError, IndexError, TypeError) as exc:
-        raise OpenRouterServiceError("OpenRouter API response did not include text content.") from exc
+        raise OpenRouterServiceError("OpenRouter API response did not include text content.", retryable=False) from exc
 
     if not isinstance(content, str) or not content.strip():
-        raise OpenRouterServiceError("OpenRouter API response was empty.")
+        raise OpenRouterServiceError("OpenRouter API response was empty.", retryable=False)
 
     return content.strip(), latency_ms, selected_model

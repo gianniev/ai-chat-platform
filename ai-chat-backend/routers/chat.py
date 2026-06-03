@@ -25,6 +25,7 @@ from services.chat_service import (
     normalize_provider,
     resolve_provider_model,
 )
+from services.provider_errors import ProviderServiceError
 from settings import HISTORY_LIMIT
 
 router = APIRouter()
@@ -34,9 +35,28 @@ SSE_HEADERS = {
     "X-Accel-Buffering": "no",
 }
 
+FALLBACK_ORDER = ["gemini", "openrouter", "huggingface"]
+
 
 def sse_token(token: str) -> str:
     return f"data: {json.dumps({'token': token})}\n\n"
+
+
+def sse_metadata(provider: str, model: str, latency_ms: int) -> str:
+    return f"data: {json.dumps({'metadata': {'provider': provider, 'model': model, 'latency_ms': latency_ms}})}\n\n"
+
+
+def get_fallback_candidates(requested_provider: str) -> list[str]:
+    try:
+        start_index = FALLBACK_ORDER.index(requested_provider)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"Unsupported provider: {requested_provider}") from exc
+    return FALLBACK_ORDER[start_index:]
+
+
+def log_provider_event(event: str, **values):
+    safe_values = " ".join(f"{key}={value}" for key, value in values.items() if value is not None)
+    print(f"{event} {safe_values}".strip(), flush=True)
 
 
 def persist_or_record_response(
@@ -44,7 +64,9 @@ def persist_or_record_response(
     full_response: str,
     latency_ms: int,
     persisted: bool,
-    provider: str,
+    requested_provider: str,
+    actual_provider: str,
+    fallback_used: bool,
     model: str,
     conversation_id: Optional[int] = None,
     user_message: Optional[str] = None,
@@ -56,7 +78,10 @@ def persist_or_record_response(
     try:
         insert_anonymous_chat_metric(
             mode="demo",
-            provider=provider,
+            provider=actual_provider,
+            requested_provider=requested_provider,
+            actual_provider=actual_provider,
+            fallback_used=fallback_used,
             model=model,
             tokens_in_est=tokens_in_est,
             tokens_out_est=tokens_out_est,
@@ -115,8 +140,10 @@ def persist_or_record_response(
 def stream_chat_response(
     history_messages: list[dict],
     persisted: bool,
-    provider: str,
+    requested_provider: str,
+    actual_provider: str,
     model: str,
+    fallback_used: bool,
     conversation_id: Optional[int] = None,
     user_message: Optional[str] = None,
     precomputed_response: Optional[tuple[str, int]] = None,
@@ -131,11 +158,14 @@ def stream_chat_response(
                 full_response=full_response,
                 latency_ms=latency_ms,
                 persisted=persisted,
-                provider=provider,
+                requested_provider=requested_provider,
+                actual_provider=actual_provider,
+                fallback_used=fallback_used,
                 model=model,
                 conversation_id=conversation_id,
                 user_message=user_message,
             )
+            yield sse_metadata(provider=actual_provider, model=model, latency_ms=latency_ms)
             yield "data: [DONE]\n\n"
             return
 
@@ -152,30 +182,70 @@ def stream_chat_response(
             full_response=full_response,
             latency_ms=latency_ms,
             persisted=persisted,
-            provider=provider,
+            requested_provider=requested_provider,
+            actual_provider=actual_provider,
+            fallback_used=fallback_used,
             model=model,
             conversation_id=conversation_id,
             user_message=user_message,
         )
+        yield sse_metadata(provider=actual_provider, model=model, latency_ms=latency_ms)
         yield "data: [DONE]\n\n"
 
     return StreamingResponse(generate(), media_type="text/event-stream", headers=SSE_HEADERS)
 
 
-def build_precomputed_response_if_needed(provider: str, history_messages: list[dict], model: str):
-    if provider == "huggingface":
-        return None, model
+def build_precomputed_response_if_needed(requested_provider: str, history_messages: list[dict], requested_model: str):
+    if requested_provider == "huggingface":
+        return None, requested_provider, requested_model, False
 
-    try:
-        response_text, latency_ms, selected_model = generate_provider_response(
-            provider=provider,
-            history_messages=history_messages,
-            model=model,
+    for candidate_provider in get_fallback_candidates(requested_provider):
+        candidate_model = requested_model if candidate_provider == requested_provider else resolve_provider_model(candidate_provider, None)
+        log_provider_event(
+            "provider_fallback_attempt",
+            requested_provider=requested_provider,
+            candidate_provider=candidate_provider,
         )
-    except RuntimeError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
 
-    return (response_text, latency_ms), selected_model
+        try:
+            response_text, latency_ms, selected_model = generate_provider_response(
+                provider=candidate_provider,
+                history_messages=history_messages,
+                model=candidate_model,
+            )
+        except ProviderServiceError as exc:
+            log_provider_event(
+                "provider_fallback_failed",
+                requested_provider=requested_provider,
+                candidate_provider=candidate_provider,
+                status_code=exc.status_code,
+                retryable=exc.retryable,
+            )
+            if not exc.retryable:
+                break
+            continue
+        except RuntimeError:
+            log_provider_event(
+                "provider_fallback_failed",
+                requested_provider=requested_provider,
+                candidate_provider=candidate_provider,
+                retryable=False,
+            )
+            break
+
+        fallback_used = candidate_provider != requested_provider
+        if fallback_used:
+            log_provider_event(
+                "provider_fallback_used",
+                requested_provider=requested_provider,
+                actual_provider=candidate_provider,
+            )
+        return (response_text, latency_ms), candidate_provider, selected_model, fallback_used
+
+    raise HTTPException(
+        status_code=502,
+        detail="No se pudo generar una respuesta con los proveedores disponibles.",
+    )
 
 
 @router.post("/chat")
@@ -185,8 +255,8 @@ def chat(request: ChatRequest):
         raise HTTPException(status_code=400, detail="El campo 'message' es obligatorio.")
 
     try:
-        provider = normalize_provider(request.provider)
-        model = resolve_provider_model(provider, request.model)
+        requested_provider = normalize_provider(request.provider)
+        requested_model = resolve_provider_model(requested_provider, request.model)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -194,11 +264,15 @@ def chat(request: ChatRequest):
 
     if not request.persist:
         history_messages = ensure_latest_user_turn(request_history, user_message)
-        precomputed_response, model = build_precomputed_response_if_needed(provider, history_messages, model)
+        precomputed_response, actual_provider, model, fallback_used = build_precomputed_response_if_needed(
+            requested_provider, history_messages, requested_model
+        )
         return stream_chat_response(
             history_messages=history_messages,
             persisted=False,
-            provider=provider,
+            requested_provider=requested_provider,
+            actual_provider=actual_provider,
+            fallback_used=fallback_used,
             model=model,
             precomputed_response=precomputed_response,
         )
@@ -225,11 +299,15 @@ def chat(request: ChatRequest):
         cur.close()
         conn.close()
 
-    precomputed_response, model = build_precomputed_response_if_needed(provider, history_messages, model)
+    precomputed_response, actual_provider, model, fallback_used = build_precomputed_response_if_needed(
+        requested_provider, history_messages, requested_model
+    )
     return stream_chat_response(
         history_messages=history_messages,
         persisted=True,
-        provider=provider,
+        requested_provider=requested_provider,
+        actual_provider=actual_provider,
+        fallback_used=fallback_used,
         model=model,
         conversation_id=conversation_id,
         user_message=user_message,

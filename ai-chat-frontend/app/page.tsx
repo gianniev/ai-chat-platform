@@ -13,12 +13,19 @@ import {
   PencilEdit02Icon,
 } from "@hugeicons/core-free-icons";
 
+type ChatMetadata = {
+  provider: ModelProvider;
+  model: string;
+  latencyMs?: number;
+};
+
 type ChatMessage = {
   id: string;
   role: "user" | "assistant";
   content: string;
   feedback?: "up" | "down";
   isStreaming?: boolean;
+  metadata?: ChatMetadata;
 };
 
 type ChatThread = {
@@ -35,6 +42,12 @@ type ModelOption = {
   label: string;
   provider: ModelProvider;
   model: string;
+};
+
+type StreamMetadataPayload = {
+  provider?: string;
+  model?: string;
+  latency_ms?: number;
 };
 
 type ThreadMenuState = {
@@ -75,6 +88,33 @@ const newConversationMessage: ChatMessage = {
   role: "assistant",
   content: "Nueva conversación iniciada. ¿Qué te gustaría hacer?",
 };
+
+function isModelProvider(value: string | undefined): value is ModelProvider {
+  return value === "huggingface" || value === "openrouter" || value === "gemini";
+}
+
+function getProviderLabel(provider: string) {
+  if (provider === "openrouter") {
+    return "OpenRouter";
+  }
+  if (provider === "gemini") {
+    return "Gemini";
+  }
+  if (provider === "huggingface") {
+    return "Hugging Face";
+  }
+  return provider;
+}
+
+function formatLatencyMs(latencyMs: number | undefined) {
+  if (typeof latencyMs !== "number" || Number.isNaN(latencyMs)) {
+    return "N/A";
+  }
+  if (latencyMs >= 1000) {
+    return `${(latencyMs / 1000).toFixed(1)}s`;
+  }
+  return `${Math.round(latencyMs)}ms`;
+}
 
 function createMessageId() {
   return createLocalId();
@@ -139,6 +179,20 @@ function parseStoredThreads(value: string | null): ChatThread[] | null {
           content: message.content,
           feedback: message.feedback === "up" || message.feedback === "down" ? message.feedback : undefined,
           isStreaming: false,
+          metadata:
+            message.metadata &&
+            typeof message.metadata === "object" &&
+            isModelProvider((message.metadata as Partial<ChatMetadata>).provider) &&
+            typeof (message.metadata as Partial<ChatMetadata>).model === "string"
+              ? {
+                  provider: (message.metadata as ChatMetadata).provider,
+                  model: (message.metadata as ChatMetadata).model,
+                  latencyMs:
+                    typeof (message.metadata as Partial<ChatMetadata>).latencyMs === "number"
+                      ? (message.metadata as ChatMetadata).latencyMs
+                      : undefined,
+                }
+              : undefined,
         }));
         return {
           localId: candidate.localId,
@@ -359,6 +413,9 @@ export default function HomePage() {
 
     resetTypingBuffer();
 
+    const requestStartedAt = performance.now();
+    const requestProvider = selectedModel.provider;
+    const requestModel = selectedModel.model;
     const threadId = activeThread.localId;
     const currentTitle = activeThread.title;
     const shouldAutoTitle = activeThread.messages.length <= 1 && currentTitle.startsWith("Chat ");
@@ -395,8 +452,8 @@ export default function HomePage() {
           message: text,
           history: nextHistory,
           persist: false,
-          provider: selectedModel.provider,
-          model: selectedModel.model,
+          provider: requestProvider,
+          model: requestModel,
         }),
       });
 
@@ -434,10 +491,64 @@ export default function HomePage() {
 
           if (data === "[DONE]") {
             streamFinished.current = true;
+            setThreads((prev) =>
+              prev.map((thread) =>
+                thread.localId === threadId
+                  ? {
+                      ...thread,
+                      messages: thread.messages.map((message) =>
+                        message.id === assistantMessageId && !message.metadata
+                          ? {
+                              ...message,
+                              metadata: {
+                                provider: requestProvider,
+                                model: requestModel,
+                                latencyMs: Math.round(performance.now() - requestStartedAt),
+                              },
+                            }
+                          : message,
+                      ),
+                    }
+                  : thread,
+              ),
+            );
             continue;
           }
 
-          const parsed = JSON.parse(data) as { token?: string };
+          const parsed = JSON.parse(data) as { token?: string; metadata?: StreamMetadataPayload };
+
+          if (parsed.metadata) {
+            const metadata = parsed.metadata;
+            const provider = isModelProvider(metadata.provider) ? metadata.provider : requestProvider;
+            const latencyMs =
+              typeof metadata.latency_ms === "number"
+                ? metadata.latency_ms
+                : Math.round(performance.now() - requestStartedAt);
+
+            setThreads((prev) =>
+              prev.map((thread) =>
+                thread.localId === threadId
+                  ? {
+                      ...thread,
+                      messages: thread.messages.map((message) =>
+                        message.id === assistantMessageId
+                          ? {
+                              ...message,
+                              metadata: {
+                                provider,
+                                model: metadata.model || requestModel,
+                                latencyMs,
+                              },
+                            }
+                          : message,
+                      ),
+                    }
+                  : thread,
+              ),
+            );
+            continue;
+          }
+
           const token = parsed.token ?? "";
           if (!token) {
             continue;
@@ -762,6 +873,13 @@ export default function HomePage() {
                 <div className={`bubble ${msg.role === "user" ? "user" : "assistant"}`}>
                   {msg.content}
                 </div>
+                {msg.role === "assistant" && msg.metadata && !msg.isStreaming ? (
+                  <div className="assistantMeta" aria-label="Metadata de la respuesta">
+                    <span>Provider: {getProviderLabel(msg.metadata.provider)}</span>
+                    <span>Model: {msg.metadata.model}</span>
+                    <span>Latency: {formatLatencyMs(msg.metadata.latencyMs)}</span>
+                  </div>
+                ) : null}
                 {msg.role === "assistant" && activeThread && !msg.isStreaming ? (
                   <div className="feedbackActions" aria-label="Feedback de la respuesta">
                     <button
