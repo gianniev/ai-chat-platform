@@ -1,6 +1,7 @@
 import "./globals.css";
 import type { Metadata } from "next";
 import { ReactNode } from "react";
+import { Toaster } from "sonner";
 
 export const metadata: Metadata = {
   title: "AI Chat Platform",
@@ -24,7 +25,10 @@ type RootLayoutProps = {
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="es">
-      <body>{children}</body>
+      <body>
+        {children}
+        <Toaster position="bottom-right" richColors />
+      </body>
     </html>
   );
 }

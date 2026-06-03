@@ -9,6 +9,8 @@ type ChatRequest = {
   conversation_id?: number;
   user_id?: number;
   persist?: boolean;
+  provider?: string;
+  model?: string | null;
 };
 
 export async function POST(request: Request) {
@@ -36,6 +38,8 @@ export async function POST(request: Request) {
         conversation_id: body.conversation_id,
         user_id: body.user_id,
         persist: body.persist,
+        provider: body.provider,
+        model: body.model,
       }),
       cache: "no-store",
     });

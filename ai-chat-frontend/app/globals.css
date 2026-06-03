@@ -419,6 +419,43 @@ button {
   gap: 8px;
 }
 
+.modelSelector {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.modelSelector span {
+  color: var(--signature);
+}
+
+.modelSelector select {
+  min-height: 34px;
+  max-width: 220px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg2);
+  color: var(--text);
+  cursor: pointer;
+  padding: 0 30px 0 10px;
+  outline: none;
+}
+
+.modelSelector select:hover,
+.modelSelector select:focus {
+  border-color: var(--border-hover);
+  background: var(--bg3);
+}
+
+.modelSelector select:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .messages {
   flex: 1;
   min-height: 0;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   AiBrain01Icon,
@@ -28,6 +29,14 @@ type ChatThread = {
 
 type ThemeMode = "light" | "dark";
 
+type ModelProvider = "huggingface" | "openrouter" | "gemini";
+
+type ModelOption = {
+  label: string;
+  provider: ModelProvider;
+  model: string;
+};
+
 type ThreadMenuState = {
   threadId: string;
   top: number;
@@ -36,6 +45,24 @@ type ThreadMenuState = {
 
 const STORAGE_KEY = "ai-chat-demo-threads";
 const TYPING_SPEED_MS = 18;
+
+const MODEL_OPTIONS: ModelOption[] = [
+  {
+    label: "Hugging Face",
+    provider: "huggingface",
+    model: "meta-llama/Llama-3.1-8B-Instruct",
+  },
+  {
+    label: "OpenRouter Auto Free",
+    provider: "openrouter",
+    model: "openrouter/free",
+  },
+  {
+    label: "Gemini 2.5 Flash",
+    provider: "gemini",
+    model: "gemini-2.5-flash",
+  },
+];
 
 const welcomeMessage: ChatMessage = {
   id: "welcome-message",
@@ -144,6 +171,7 @@ export default function HomePage() {
   const [activeThreadId, setActiveThreadId] = useState(firstThreadIdRef.current);
   const [searchTerm, setSearchTerm] = useState("");
   const [input, setInput] = useState("");
+  const [selectedModel, setSelectedModel] = useState<ModelOption>(MODEL_OPTIONS[0]);
   const [isLoading, setIsLoading] = useState(false);
   const [isAwaitingFirstToken, setIsAwaitingFirstToken] = useState(false);
   const [threadMenu, setThreadMenu] = useState<ThreadMenuState | null>(null);
@@ -367,6 +395,8 @@ export default function HomePage() {
           message: text,
           history: nextHistory,
           persist: false,
+          provider: selectedModel.provider,
+          model: selectedModel.model,
         }),
       });
 
@@ -548,7 +578,7 @@ export default function HomePage() {
           rating,
           client_message_id: messageId,
           client_thread_id: threadId,
-          model: "meta-llama/Llama-3.1-8B-Instruct",
+          model: selectedModel.model,
         }),
       });
     } catch {
@@ -683,6 +713,34 @@ export default function HomePage() {
               <span className="headerSignature">by Gianni Etcheverry</span>
             </div>
             <div className="headerActions">
+              <label className="modelSelector">
+                <span>Model</span>
+                <select
+                  value={`${selectedModel.provider}:${selectedModel.model}`}
+                  onChange={(event) => {
+                    const nextModel = MODEL_OPTIONS.find(
+                      (option) => `${option.provider}:${option.model}` === event.target.value,
+                    );
+                    if (nextModel) {
+                      setSelectedModel(nextModel);
+                      toast("Modelo cambiado correctamente", {
+                        description: nextModel.label,
+                      });
+                    }
+                  }}
+                  disabled={isLoading}
+                  aria-label="Seleccionar modelo"
+                >
+                  {MODEL_OPTIONS.map((option) => (
+                    <option
+                      key={`${option.provider}:${option.model}`}
+                      value={`${option.provider}:${option.model}`}
+                    >
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <button
                 type="button"
                 className="themeButton"
