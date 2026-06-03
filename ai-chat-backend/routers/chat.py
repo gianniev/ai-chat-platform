@@ -53,7 +53,7 @@ def persist_or_record_response(
     tokens_in_est = estimate_tokens(prompt_text)
     tokens_out_est = estimate_tokens(full_response)
 
-    if not persisted:
+    try:
         insert_anonymous_chat_metric(
             mode="demo",
             provider=provider,
@@ -61,8 +61,13 @@ def persist_or_record_response(
             tokens_in_est=tokens_in_est,
             tokens_out_est=tokens_out_est,
             latency_ms=latency_ms,
-            persisted=False,
+            persisted=persisted,
         )
+    except Exception:
+        # The insert function already logs a sanitized failure. Do not break a successful chat response.
+        pass
+
+    if not persisted:
         return
 
     if conversation_id is None or user_message is None:

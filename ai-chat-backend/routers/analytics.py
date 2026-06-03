@@ -73,12 +73,12 @@ def get_model_analytics():
         cur.execute(
             """
             SELECT
-                COALESCE(provider, 'huggingface') AS provider,
+                COALESCE(NULLIF(provider, ''), 'huggingface') AS provider,
                 COALESCE(NULLIF(model, ''), 'default') AS model,
                 COUNT(*) AS total_requests,
                 COALESCE(ROUND(AVG(latency_ms)), 0) AS avg_latency_ms
             FROM anonymous_chat_metrics
-            GROUP BY COALESCE(provider, 'huggingface'), COALESCE(NULLIF(model, ''), 'default')
+            GROUP BY COALESCE(NULLIF(provider, ''), 'huggingface'), COALESCE(NULLIF(model, ''), 'default')
             ORDER BY total_requests DESC, provider ASC, model ASC
             """
         )

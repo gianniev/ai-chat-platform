@@ -93,6 +93,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS anonymous_chat_metrics (
             id SERIAL PRIMARY KEY,
             mode TEXT NOT NULL DEFAULT 'demo',
+            provider TEXT,
             model TEXT,
             tokens_in_est INTEGER,
             tokens_out_est INTEGER,
@@ -284,6 +285,15 @@ def insert_anonymous_chat_metric(
     success: bool = True,
     provider: Optional[str] = None,
 ):
+    safe_provider = provider or "unknown"
+    safe_model = model or "default"
+    print(
+        "analytics_insert_start "
+        f"provider={safe_provider} model={safe_model} "
+        f"latency_ms={latency_ms} persisted={persisted}",
+        flush=True,
+    )
+
     conn = get_connection()
     cur = conn.cursor()
 
@@ -305,6 +315,21 @@ def insert_anonymous_chat_metric(
             (mode, provider, model, tokens_in_est, tokens_out_est, latency_ms, persisted, success),
         )
         conn.commit()
+        print(
+            "analytics_insert_ok "
+            f"provider={safe_provider} model={safe_model} "
+            f"latency_ms={latency_ms} persisted={persisted}",
+            flush=True,
+        )
+    except Exception as error:
+        conn.rollback()
+        print(
+            "analytics_insert_failed "
+            f"provider={safe_provider} model={safe_model} "
+            f"error_type={type(error).__name__}",
+            flush=True,
+        )
+        raise
     finally:
         cur.close()
         conn.close()
