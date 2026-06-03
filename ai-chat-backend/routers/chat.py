@@ -121,7 +121,6 @@ def stream_chat_response(
             full_response, latency_ms = precomputed_response
             if full_response:
                 yield sse_token(full_response)
-            yield "data: [DONE]\n\n"
             persist_or_record_response(
                 history_messages=history_messages,
                 full_response=full_response,
@@ -132,6 +131,7 @@ def stream_chat_response(
                 conversation_id=conversation_id,
                 user_message=user_message,
             )
+            yield "data: [DONE]\n\n"
             return
 
         started_at = time.time()
@@ -142,8 +142,6 @@ def stream_chat_response(
             yield sse_token(token)
 
         latency_ms = int((time.time() - started_at) * 1000)
-        yield "data: [DONE]\n\n"
-
         persist_or_record_response(
             history_messages=history_messages,
             full_response=full_response,
@@ -154,6 +152,7 @@ def stream_chat_response(
             conversation_id=conversation_id,
             user_message=user_message,
         )
+        yield "data: [DONE]\n\n"
 
     return StreamingResponse(generate(), media_type="text/event-stream", headers=SSE_HEADERS)
 
